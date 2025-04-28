@@ -6,50 +6,47 @@ import requests
 # Write directly to the app
 st.title(f"Customize your smoothie :balloon: {st.__version__}")
 st.write(
-  """Elige tu fruta favorita para tu Smoothie
-  """
+    """Elige tu fruta favorita para tu Smoothie"""
 )
-############
-name_on_order = st.text_input("Name on Smoothie :")
-st.write("The name on your Smoothie Will be:", name_on_order)
 
+# Input para el nombre del smoothie
+name_on_order = st.text_input("Name on Smoothie:")
+st.write("The name on your Smoothie will be:", name_on_order)
+
+# Conexión a Snowflake
 conn = st.connection("snowflake")
 session = conn.session()
+
+# Consulta la tabla de frutas
 my_dataframe = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME'))
-#st.dataframe(data=my_dataframe, use_container_width=True)
 
-ingredients_list = st.multiselect (
-	'Choose up to 5 ingredients:'
-	, my_dataframe
-    , max_selections= 5
+# Selección de ingredientes
+ingredients_list = st.multiselect(
+    'Choose up to 5 ingredients:',
+    my_dataframe,
+    max_selections=5
 )
-if ingredients_list: #usando python si no es nullo la lista
 
+# Si hay ingredientes seleccionados
+if ingredients_list:
     ingredients_string = ''
-    
+
     for fruit_chosen in ingredients_list:
         ingredients_string += fruit_chosen + ' '
-	st.subheader(fruit_chosen + 'Nutrition Information')    
-	smoothiefroot_response = requests.get("https://my.smoothiefroot.com/api/fruit/" + fruit_chosen)
-	sf_df = st.dataframe(data=smoothiefroot_response.json(), use_container_width=True)    
+        st.subheader(f'{fruit_chosen} Nutrition Information')
+        # Llamada a la API
+        smoothiefroot_response = requests.get(f"https://my.smoothiefroot.com/api/fruit/{fruit_chosen}")
+        sf_df = st.dataframe(data=smoothiefroot_response.json(), use_container_width=True)
 
-    #st.write(ingredients_string)
+    # Armado del insert
+    my_insert_stmt = f"""
+        INSERT INTO smoothies.public.orders (ingredients, name_on_order)
+        VALUES ('{ingredients_string}', '{name_on_order}')
+    """
 
-    #solo es variable
-    my_insert_stmt = """ insert into smoothies.public.orders(ingredients, name_on_order)
-            values ('""" + ingredients_string + """',
-            '""" + name_on_order + """')"""
-
-    #st.write(my_insert_stmt)
-    #st.stop() #para la logica
+    # Botón para enviar la orden
     time_to_insert = st.button('Submit Order')
 
     if time_to_insert:
         session.sql(my_insert_stmt).collect()
-    
-        st.success(f'Your Smoothie is ordered,{name_on_order} ! ', icon="✅")
-
-
-
-     
-
+        st.success(f'Your Smoothie is ordered, {name_on_order}! ✅')
